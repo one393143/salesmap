@@ -194,66 +194,250 @@ else:
                 st.success("✅ 時間窗切分成功！")
                 
                 # 顯示結果
-                st.markdown("### 📅 最終排程建議")
+                st.markdown("### 📅 最終排程與地圖")
                 
-                # 1. 顯示上午場
-                st.markdown("#### 🌅 上午場 (出發 ➔ 預約錨點)")
-                current_time = start_datetime
-                st.markdown(f"- **{current_time.strftime('%H:%M')}** 🏢 出發點 (公司)")
+                col_left, col_right = st.columns([1, 1])
                 
-                for idx in range(len(final_morning_legs)):
-                    leg = final_morning_legs[idx]
-                    travel_time = leg['duration'] / 60
-                    current_time += timedelta(minutes=travel_time)
+                with col_left:
+                    st.markdown("#### ⏱️ 行程時刻表")
                     
-                    next_input_idx = final_morning_order[idx + 1]
-                    if idx == len(final_morning_legs) - 1:
-                        st.markdown(f"- **{current_time.strftime('%H:%M')}** 🏁 ⭐ {anchor_row['客戶名稱']} (錨點) [車程: {travel_time:.1f} 分]")
-                    else:
-                        cid = morning_ids[next_input_idx - 1]
-                        cname = edited_df.loc[cid]['客戶名稱']
-                        stay_time = int(edited_df.loc[cid]['客製停留時間(分鐘)'])
-                        st.markdown(f"- **{current_time.strftime('%H:%M')}** 📍 {cname} [車程: {travel_time:.1f} 分]")
-                        current_time += timedelta(minutes=stay_time)
-                        st.markdown(f"  *(停留 {stay_time} 分鐘，預計 {current_time.strftime('%H:%M')} 離開)*")
-                
-                # 2. 顯示下午場
-                if afternoon_ids:
-                    st.markdown("---")
-                    st.markdown("#### 🌆 下午場 (預約錨點 ➔ 公司)")
+                    # 使用 HTML/CSS 繪製時間軸
+                    timeline_html = """
+                    <style>
+                    .timeline {
+                        border-left: 3px solid #007bff;
+                        padding-left: 20px;
+                        margin-left: 10px;
+                        position: relative;
+                    }
+                    .timeline-item {
+                        margin-bottom: 20px;
+                        position: relative;
+                    }
+                    .timeline-item::before {
+                        content: '';
+                        width: 12px;
+                        height: 12px;
+                        background-color: #007bff;
+                        border-radius: 50%;
+                        position: absolute;
+                        left: -28px;
+                        top: 5px;
+                    }
+                    .timeline-time {
+                        font-weight: bold;
+                        color: #007bff;
+                    }
+                    .timeline-title {
+                        font-weight: bold;
+                        font-size: 1.1em;
+                    }
+                    .timeline-desc {
+                        color: #666;
+                        font-size: 0.9em;
+                    }
+                    .nav-btn {
+                        display: inline-block;
+                        background-color: #28a745;
+                        color: white;
+                        padding: 5px 10px;
+                        text-decoration: none;
+                        border-radius: 4px;
+                        font-size: 0.8em;
+                        margin-top: 5px;
+                    }
+                    </style>
+                    <div class="timeline">
+                    """
                     
-                    # 加上錨點停留時間 (假設也是 default_stay)
-                    anchor_stay = int(anchor_row['客製停留時間(分鐘)'])
-                    current_time += timedelta(minutes=anchor_stay)
-                    st.markdown(f"預計 **{current_time.strftime('%H:%M')}** 從錨點出發")
+                    # 1. 處理上午場時間軸
+                    current_time = start_datetime
+                    timeline_html += f"""
+                    <div class="timeline-item">
+                        <span class="timeline-time">{current_time.strftime('%H:%M')}</span>
+                        <div class="timeline-title">🏢 出發點 (公司)</div>
+                    </div>
+                    """
                     
-                    afternoon_coords = [(anchor_lat, anchor_lon)]
-                    for aid in afternoon_ids:
-                        afternoon_coords.append((df_all.loc[aid]['Latitude'], df_all.loc[aid]['Longitude']))
-                    afternoon_coords.append((start_lat, start_lon))
+                    morning_stops = []
+                    afternoon_stops = []
                     
-                    geojson_aft, waypoints_aft, legs_aft = get_optimized_trip_open(afternoon_coords, MAPBOX_TOKEN)
+                    import urllib.parse
                     
-                    if legs_aft:
-                        visit_order_aft = [None] * len(waypoints_aft)
-                        for i, wp in enumerate(waypoints_aft):
-                            visit_order_aft[wp['waypoint_index']] = i
+                    for idx in range(len(final_morning_legs)):
+                        leg = final_morning_legs[idx]
+                        travel_time = leg['duration'] / 60
+                        
+                        # 記錄上一站地址
+                        if idx == 0:
+                            prev_addr = start_addr
+                        else:
+                            prev_input_idx = final_morning_order[idx]
+                            prev_cid = morning_ids[prev_input_idx - 1]
+                            prev_addr = df_all.loc[prev_cid]['清洗後地址']
                             
+                        current_time += timedelta(minutes=travel_time)
+                        
+                        next_input_idx = final_morning_order[idx + 1]
+                        if idx == len(final_morning_legs) - 1:
+                            # 抵達錨點
+                            dest_addr = anchor_row['地址']
+                            nav_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(str(prev_addr))}&destination={urllib.parse.quote(str(dest_addr))}"
+                            
+                            timeline_html += f"""
+                            <div class="timeline-item">
+                                <span class="timeline-time">{current_time.strftime('%H:%M')}</span>
+                                <div class="timeline-title">🏁 ⭐ {anchor_row['客戶名稱']} (錨點)</div>
+                                <div class="timeline-desc">🚗 車程: {travel_time:.1f} 分</div>
+                                <a href="{nav_url}" target="_blank" class="nav-btn">🗺️ 分段導航</a>
+                            </div>
+                            """
+                            morning_stops.append((anchor_lat, anchor_lon, f"⭐ {anchor_row['客戶名稱']}"))
+                        else:
+                            cid = morning_ids[next_input_idx - 1]
+                            cname = edited_df.loc[cid]['客戶名稱']
+                            stay_time = int(edited_df.loc[cid]['客製停留時間(分鐘)'])
+                            dest_addr = edited_df.loc[cid]['地址']
+                            
+                            nav_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(str(prev_addr))}&destination={urllib.parse.quote(str(dest_addr))}"
+                            
+                            timeline_html += f"""
+                            <div class="timeline-item">
+                                <span class="timeline-time">{current_time.strftime('%H:%M')}</span>
+                                <div class="timeline-title">📍 {cname}</div>
+                                <div class="timeline-desc">🚗 車程: {travel_time:.1f} 分 | ⏳ 停留 {stay_time} 分鐘</div>
+                                <a href="{nav_url}" target="_blank" class="nav-btn">🗺️ 分段導航</a>
+                            </div>
+                            """
+                            morning_stops.append((df_all.loc[cid]['Latitude'], df_all.loc[cid]['Longitude'], cname))
+                            current_time += timedelta(minutes=stay_time)
+                            
+                    # 2. 處理下午場時間軸
+                    if afternoon_ids:
+                        anchor_stay = int(anchor_row['客製停留時間(分鐘)'])
+                        current_time += timedelta(minutes=anchor_stay)
+                        
+                        timeline_html += f"""
+                        </div> <!-- 結束上午 timeline -->
+                        <div style="margin: 20px 0; font-weight: bold; color: #ffa500;">🌆 下午場 (預約錨點 ➔ 公司)</div>
+                        <div class="timeline" style="border-left-color: #ffa500;">
+                        <div class="timeline-item" style="border-left-color: #ffa500;">
+                            <span class="timeline-time">{current_time.strftime('%H:%M')}</span>
+                            <div class="timeline-title">⭐ 從錨點出發</div>
+                        </div>
+                        """
+                        
                         for idx in range(len(legs_aft)):
                             leg = legs_aft[idx]
                             travel_time = leg['duration'] / 60
+                            
+                            if idx == 0:
+                                prev_addr = anchor_row['地址']
+                            else:
+                                prev_input_idx = visit_order_aft[idx]
+                                prev_cid = afternoon_ids[prev_input_idx - 1]
+                                prev_addr = df_all.loc[prev_cid]['清洗後地址']
+                                
                             current_time += timedelta(minutes=travel_time)
                             
                             next_input_idx = visit_order_aft[idx + 1]
                             if idx == len(legs_aft) - 1:
-                                st.markdown(f"- **{current_time.strftime('%H:%M')}** 🏢 抵達公司 (終點) [車程: {travel_time:.1f} 分]")
+                                dest_addr = start_addr
+                                nav_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(str(prev_addr))}&destination={urllib.parse.quote(str(dest_addr))}"
+                                
+                                timeline_html += f"""
+                                <div class="timeline-item">
+                                    <span class="timeline-time">{current_time.strftime('%H:%M')}</span>
+                                    <div class="timeline-title">🏢 抵達公司 (終點)</div>
+                                    <div class="timeline-desc">🚗 車程: {travel_time:.1f} 分</div>
+                                    <a href="{nav_url}" target="_blank" class="nav-btn">🗺️ 分段導航</a>
+                                </div>
+                                """
                             else:
                                 cid = afternoon_ids[next_input_idx - 1]
                                 cname = edited_df.loc[cid]['客戶名稱']
                                 stay_time = int(edited_df.loc[cid]['客製停留時間(分鐘)'])
-                                st.markdown(f"- **{current_time.strftime('%H:%M')}** 📍 {cname} [車程: {travel_time:.1f} 分]")
+                                dest_addr = edited_df.loc[cid]['地址']
+                                
+                                nav_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(str(prev_addr))}&destination={urllib.parse.quote(str(dest_addr))}"
+                                
+                                timeline_html += f"""
+                                <div class="timeline-item">
+                                    <span class="timeline-time">{current_time.strftime('%H:%M')}</span>
+                                    <div class="timeline-title">📍 {cname}</div>
+                                    <div class="timeline-desc">🚗 車程: {travel_time:.1f} 分 | ⏳ 停留 {stay_time} 分鐘</div>
+                                    <a href="{nav_url}" target="_blank" class="nav-btn">🗺️ 分段導航</a>
+                                </div>
+                                """
+                                afternoon_stops.append((df_all.loc[cid]['Latitude'], df_all.loc[cid]['Longitude'], cname))
                                 current_time += timedelta(minutes=stay_time)
-                                st.markdown(f"  *(停留 {stay_time} 分鐘，預計 {current_time.strftime('%H:%M')} 離開)*")
-                    else:
-                        st.error("呼叫 Mapbox API 失敗！")
+                                
+                    timeline_html += "</div>"
+                    st.markdown(timeline_html, unsafe_allow_html=True)
+                    
+                with col_right:
+                    st.markdown("#### 🗺️ 視覺化地圖")
+                    import folium
+                    from streamlit_folium import folium_static
+                    
+                    m = folium.Map(location=[start_lat, start_lon], zoom_start=12)
+                    
+                    # 1. 繪製上午軌跡 (藍色)
+                    if 'geojson' in locals() and geojson:
+                        folium.GeoJson(
+                            geojson,
+                            style_function=lambda x: {'color': '#007bff', 'weight': 5, 'opacity': 0.8}
+                        ).add_to(m)
+                        
+                        coords = geojson['coordinates']
+                        mid_idx = len(coords) // 2
+                        mid_coord = coords[mid_idx]
+                        folium.Marker(
+                            location=[mid_coord[1], mid_coord[0]],
+                            icon=folium.DivIcon(html=f'<div style="color: blue; font-weight: bold; background: white; padding: 2px; border-radius: 3px;">🚗 上午場</div>')
+                        ).add_to(m)
+                        
+                    # 2. 繪製下午軌跡 (橘色)
+                    if 'geojson_aft' in locals() and geojson_aft:
+                        folium.GeoJson(
+                            geojson_aft,
+                            style_function=lambda x: {'color': '#ffa500', 'weight': 5, 'opacity': 0.8}
+                        ).add_to(m)
+                        
+                        coords = geojson_aft['coordinates']
+                        mid_idx = len(coords) // 2
+                        mid_coord = coords[mid_idx]
+                        folium.Marker(
+                            location=[mid_coord[1], mid_coord[0]],
+                            icon=folium.DivIcon(html=f'<div style="color: orange; font-weight: bold; background: white; padding: 2px; border-radius: 3px;">🚗 下午場</div>')
+                        ).add_to(m)
+                        
+                    # 3. 繪製帶數字的圖釘
+                    folium.Marker(
+                        location=[start_lat, start_lon],
+                        icon=folium.DivIcon(html=f'<div style="font-size: 10pt; color: white; background-color: #007bff; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center;">起</div>'),
+                        popup="🏢 出發點 (公司)"
+                    ).add_to(m)
+                    
+                    for i, stop in enumerate(morning_stops):
+                        folium.Marker(
+                            location=[stop[0], stop[1]],
+                            icon=folium.DivIcon(html=f'<div style="font-size: 10pt; color: white; background-color: #007bff; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center;">{i+1}</div>'),
+                            popup=stop[2]
+                        ).add_to(m)
+                        
+                    folium.Marker(
+                        location=[anchor_lat, anchor_lon],
+                        icon=folium.DivIcon(html=f'<div style="font-size: 10pt; color: white; background-color: #ff0000; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center;">⭐</div>'),
+                        popup=f"⭐ {anchor_row['客戶名稱']} (錨點)"
+                    ).add_to(m)
+                    
+                    for i, stop in enumerate(afternoon_stops):
+                        folium.Marker(
+                            location=[stop[0], stop[1]],
+                            icon=folium.DivIcon(html=f'<div style="font-size: 10pt; color: white; background-color: #ffa500; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center;">{len(morning_stops)+1+i}</div>'),
+                            popup=stop[2]
+                        ).add_to(m)
+                        
+                    folium_static(m)
 
