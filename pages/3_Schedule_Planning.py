@@ -157,26 +157,86 @@ else:
             with col_left:
                 st.markdown("#### ⏱️ 行程時刻表")
                 
-                timeline_html = textwrap.dedent("""
-                <style>
-                .timeline { border-left: 3px solid #007bff; padding-left: 20px; margin-left: 10px; position: relative; }
-                .timeline-item { margin-bottom: 20px; position: relative; }
-                .timeline-item::before { content: ''; width: 12px; height: 12px; background-color: #007bff; border-radius: 50%; position: absolute; left: -28px; top: 5px; }
-                .timeline-time { font-weight: bold; color: #007bff; }
-                .timeline-title { font-weight: bold; font-size: 1.1em; }
-                .timeline-desc { color: #666; font-size: 0.9em; }
-                .nav-btn { display: inline-block; background-color: #28a745; color: white; padding: 5px 10px; text-decoration: none; border-radius: 4px; font-size: 0.8em; margin-top: 5px; }
-                </style>
-                <div class="timeline">
-                """)
+                st.markdown("#### ⏱️ 行程時刻表")
+                
+                timeline_html = """
+<style>
+.funliday-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 10px;
+}
+.funliday-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: white;
+    padding: 12px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+.funliday-pin {
+    background-color: #ff5a5f;
+    color: white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+}
+.funliday-content {
+    flex: 1;
+}
+.funliday-title {
+    font-weight: bold;
+    color: #333;
+    font-size: 14px;
+}
+.funliday-time {
+    font-size: 12px;
+    color: #666;
+}
+.funliday-transit {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 12px;
+    border-left: 2px dashed #ff5a5f;
+    padding-left: 20px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    font-size: 13px;
+    color: #666;
+}
+.funliday-transit a {
+    color: #ff5a5f;
+    text-decoration: none;
+    font-weight: bold;
+}
+.funliday-transit a:hover {
+    text-decoration: underline;
+}
+</style>
+<div class="funliday-list">
+"""
                 
                 current_time = start_datetime
+                # 第一站：公司
                 timeline_html += f"""
-                <div class="timeline-item">
-                    <span class="timeline-time">{current_time.strftime('%H:%M')}</span>
-                    <div class="timeline-title">🏢 出發點 (公司)</div>
-                </div>
-                """
+<div class="funliday-item">
+    <div class="funliday-pin">起</div>
+    <div class="funliday-content">
+        <div class="funliday-title">🏢 出發點 (公司)</div>
+        <div class="funliday-time">{current_time.strftime('%H:%M')} 出發</div>
+    </div>
+</div>
+"""
                 
                 stops_for_map = []
                 
@@ -198,13 +258,18 @@ else:
                         nav_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(str(prev_addr))}&destination={urllib.parse.quote(str(dest_addr))}"
                         
                         timeline_html += f"""
-                        <div class="timeline-item">
-                            <span class="timeline-time">{current_time.strftime('%H:%M')}</span>
-                            <div class="timeline-title">🏢 抵達公司 (終點)</div>
-                            <div class="timeline-desc">🚗 車程: {travel_time:.1f} 分</div>
-                            <a href="{nav_url}" target="_blank" class="nav-btn">🗺️ 分段導航</a>
-                        </div>
-                        """
+<div class="funliday-transit">
+    <span>🚗 車程 {travel_time:.0f} 分鐘</span>
+    <a href="{nav_url}" target="_blank">🗺️ 導航</a>
+</div>
+<div class="funliday-item">
+    <div class="funliday-pin">終</div>
+    <div class="funliday-content">
+        <div class="funliday-title">🏢 抵達公司 (終點)</div>
+        <div class="funliday-time">{current_time.strftime('%H:%M')}</div>
+    </div>
+</div>
+"""
                     else:
                         next_input_idx = visit_order[idx + 1]
                         cid = client_ids[next_input_idx - 1]
@@ -214,16 +279,23 @@ else:
                         
                         nav_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(str(prev_addr))}&destination={urllib.parse.quote(str(dest_addr))}"
                         
+                        end_stay_time = current_time + timedelta(minutes=stay_time)
+                        
                         timeline_html += f"""
-                        <div class="timeline-item">
-                            <span class="timeline-time">{current_time.strftime('%H:%M')}</span>
-                            <div class="timeline-title">📍 {cname}</div>
-                            <div class="timeline-desc">🚗 車程: {travel_time:.1f} 分 | ⏳ 停留 {stay_time} 分鐘</div>
-                            <a href="{nav_url}" target="_blank" class="nav-btn">🗺️ 分段導航</a>
-                        </div>
-                        """
+<div class="funliday-transit">
+    <span>🚗 車程 {travel_time:.0f} 分鐘</span>
+    <a href="{nav_url}" target="_blank">🗺️ 導航</a>
+</div>
+<div class="funliday-item">
+    <div class="funliday-pin">{idx+1}</div>
+    <div class="funliday-content">
+        <div class="funliday-title">📍 {cname}</div>
+        <div class="funliday-time">{current_time.strftime('%H:%M')} - {end_stay_time.strftime('%H:%M')} (停留 {stay_time} 分)</div>
+    </div>
+</div>
+"""
                         stops_for_map.append((df_all.loc[cid]['Latitude'], df_all.loc[cid]['Longitude'], cname))
-                        current_time += timedelta(minutes=stay_time)
+                        current_time = end_stay_time
                         
                 timeline_html += "</div>"
                 st.markdown(timeline_html, unsafe_allow_html=True)
@@ -339,31 +411,90 @@ else:
                 
                 with col_left:
                     st.markdown("#### ⏱️ 行程時刻表")
-                    
-                    timeline_html = textwrap.dedent("""
-                    <style>
-                    .timeline { border-left: 3px solid #007bff; padding-left: 20px; margin-left: 10px; position: relative; }
-                    .timeline-item { margin-bottom: 20px; position: relative; }
-                    .timeline-item::before { content: ''; width: 12px; height: 12px; background-color: #007bff; border-radius: 50%; position: absolute; left: -28px; top: 5px; }
-                    .timeline-time { font-weight: bold; color: #007bff; }
-                    .timeline-title { font-weight: bold; font-size: 1.1em; }
-                    .timeline-desc { color: #666; font-size: 0.9em; }
-                    .nav-btn { display: inline-block; background-color: #28a745; color: white; padding: 5px 10px; text-decoration: none; border-radius: 4px; font-size: 0.8em; margin-top: 5px; }
-                    </style>
-                    <div class="timeline">
-                    """)
-                    
+                
+                    timeline_html = """
+<style>
+.funliday-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 10px;
+}
+.funliday-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: white;
+    padding: 12px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+.funliday-pin {
+    background-color: #ff5a5f;
+    color: white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+}
+.funliday-content {
+    flex: 1;
+}
+.funliday-title {
+    font-weight: bold;
+    color: #333;
+    font-size: 14px;
+}
+.funliday-time {
+    font-size: 12px;
+    color: #666;
+}
+.funliday-transit {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 12px;
+    border-left: 2px dashed #ff5a5f;
+    padding-left: 20px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    font-size: 13px;
+    color: #666;
+}
+.funliday-transit a {
+    color: #ff5a5f;
+    text-decoration: none;
+    font-weight: bold;
+}
+.funliday-transit a:hover {
+    text-decoration: underline;
+}
+</style>
+<div class="funliday-list">
+"""
+                
                     current_time = start_datetime
+                    # 第一站：公司
                     timeline_html += f"""
-                    <div class="timeline-item">
-                        <span class="timeline-time">{current_time.strftime('%H:%M')}</span>
-                        <div class="timeline-title">🏢 出發點 (公司)</div>
-                    </div>
-                    """
-                    
+<div class="funliday-item">
+    <div class="funliday-pin">起</div>
+    <div class="funliday-content">
+        <div class="funliday-title">🏢 出發點 (公司)</div>
+        <div class="funliday-time">{current_time.strftime('%H:%M')} 出發</div>
+    </div>
+</div>
+"""
+                
                     morning_stops = []
                     afternoon_stops = []
-                    
+                
+                    # 上午場
                     for idx in range(len(final_morning_legs)):
                         leg = final_morning_legs[idx]
                         travel_time = leg['duration'] / 60
@@ -377,21 +508,26 @@ else:
                             
                         current_time += timedelta(minutes=travel_time)
                         
-                        next_input_idx = final_morning_order[idx + 1]
                         if idx == len(final_morning_legs) - 1:
                             dest_addr = anchor_row['地址']
                             nav_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(str(prev_addr))}&destination={urllib.parse.quote(str(dest_addr))}"
                             
                             timeline_html += f"""
-                            <div class="timeline-item">
-                                <span class="timeline-time">{current_time.strftime('%H:%M')}</span>
-                                <div class="timeline-title">🏁 ⭐ {anchor_row['客戶名稱']} (錨點)</div>
-                                <div class="timeline-desc">🚗 車程: {travel_time:.1f} 分</div>
-                                <a href="{nav_url}" target="_blank" class="nav-btn">🗺️ 分段導航</a>
-                            </div>
-                            """
+<div class="funliday-transit">
+    <span>🚗 車程 {travel_time:.0f} 分鐘</span>
+    <a href="{nav_url}" target="_blank">🗺️ 導航</a>
+</div>
+<div class="funliday-item" style="border: 2px solid #ff5a5f;">
+    <div class="funliday-pin">⭐</div>
+    <div class="funliday-content">
+        <div class="funliday-title">🏁 {anchor_row['客戶名稱']} (錨點)</div>
+        <div class="funliday-time">{current_time.strftime('%H:%M')} 抵達</div>
+    </div>
+</div>
+"""
                             morning_stops.append((anchor_lat, anchor_lon, f"⭐ {anchor_row['客戶名稱']}"))
                         else:
+                            next_input_idx = final_morning_order[idx + 1]
                             cid = morning_ids[next_input_idx - 1]
                             cname = edited_df.loc[cid]['客戶名稱']
                             stay_time = int(edited_df.loc[cid]['客製停留時間(分鐘)'])
@@ -399,30 +535,32 @@ else:
                             
                             nav_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(str(prev_addr))}&destination={urllib.parse.quote(str(dest_addr))}"
                             
-                            timeline_html += f"""
-                            <div class="timeline-item">
-                                <span class="timeline-time">{current_time.strftime('%H:%M')}</span>
-                                <div class="timeline-title">📍 {cname}</div>
-                                <div class="timeline-desc">🚗 車程: {travel_time:.1f} 分 | ⏳ 停留 {stay_time} 分鐘</div>
-                                <a href="{nav_url}" target="_blank" class="nav-btn">🗺️ 分段導航</a>
-                            </div>
-                            """
-                            morning_stops.append((df_all.loc[cid]['Latitude'], df_all.loc[cid]['Longitude'], cname))
-                            current_time += timedelta(minutes=stay_time)
+                            end_stay_time = current_time + timedelta(minutes=stay_time)
                             
+                            timeline_html += f"""
+<div class="funliday-transit">
+    <span>🚗 車程 {travel_time:.0f} 分鐘</span>
+    <a href="{nav_url}" target="_blank">🗺️ 導航</a>
+</div>
+<div class="funliday-item">
+    <div class="funliday-pin">{idx+1}</div>
+    <div class="funliday-content">
+        <div class="funliday-title">📍 {cname}</div>
+        <div class="funliday-time">{current_time.strftime('%H:%M')} - {end_stay_time.strftime('%H:%M')} (停留 {stay_time} 分)</div>
+    </div>
+</div>
+"""
+                            morning_stops.append((df_all.loc[cid]['Latitude'], df_all.loc[cid]['Longitude'], cname))
+                            current_time = end_stay_time
+                            
+                    # 下午場
                     if afternoon_ids:
                         anchor_stay = int(anchor_row['客製停留時間(分鐘)'])
                         current_time += timedelta(minutes=anchor_stay)
                         
                         timeline_html += f"""
-                        </div>
-                        <div style="margin: 20px 0; font-weight: bold; color: #ffa500;">🌆 下午場 (預約錨點 ➔ 公司)</div>
-                        <div class="timeline" style="border-left-color: #ffa500;">
-                        <div class="timeline-item" style="border-left-color: #ffa500;">
-                            <span class="timeline-time">{current_time.strftime('%H:%M')}</span>
-                            <div class="timeline-title">⭐ 從錨點出發</div>
-                        </div>
-                        """
+<div style="margin: 15px 0; font-weight: bold; color: #ffa500; font-size: 14px;">🌆 下午場 (預約錨點 ➔ 公司)</div>
+"""
                         
                         afternoon_coords = [(anchor_lat, anchor_lon)]
                         for aid in afternoon_ids:
@@ -449,20 +587,25 @@ else:
                                     
                                 current_time += timedelta(minutes=travel_time)
                                 
-                                next_input_idx = visit_order_aft[idx + 1]
                                 if idx == len(legs_aft) - 1:
                                     dest_addr = start_addr
                                     nav_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(str(prev_addr))}&destination={urllib.parse.quote(str(dest_addr))}"
                                     
                                     timeline_html += f"""
-                                    <div class="timeline-item">
-                                        <span class="timeline-time">{current_time.strftime('%H:%M')}</span>
-                                        <div class="timeline-title">🏢 抵達公司 (終點)</div>
-                                        <div class="timeline-desc">🚗 車程: {travel_time:.1f} 分</div>
-                                        <a href="{nav_url}" target="_blank" class="nav-btn">🗺️ 分段導航</a>
-                                    </div>
-                                    """
+<div class="funliday-transit" style="border-left-color: #ffa500;">
+    <span>🚗 車程 {travel_time:.0f} 分鐘</span>
+    <a href="{nav_url}" target="_blank" style="color: #ffa500;">🗺️ 導航</a>
+</div>
+<div class="funliday-item">
+    <div class="funliday-pin" style="background-color: #ffa500;">終</div>
+    <div class="funliday-content">
+        <div class="funliday-title">🏢 抵達公司 (終點)</div>
+        <div class="funliday-time">{current_time.strftime('%H:%M')}</div>
+    </div>
+</div>
+"""
                                 else:
+                                    next_input_idx = visit_order_aft[idx + 1]
                                     cid = afternoon_ids[next_input_idx - 1]
                                     cname = edited_df.loc[cid]['客戶名稱']
                                     stay_time = int(edited_df.loc[cid]['客製停留時間(分鐘)'])
@@ -496,7 +639,15 @@ else:
                     if 'geojson' in locals() and geojson:
                         folium.GeoJson(
                             geojson,
-                            style_function=lambda x: {'color': '#007bff', 'weight': 5, 'opacity': 0.8}
+                            name="上午場路線",
+                            style_function=lambda x: {'color': '#ff5a5f', 'weight': 5, 'opacity': 0.8}
+                        ).add_to(m)
+                        
+                    if 'geojson_aft' in locals() and geojson_aft:
+                        folium.GeoJson(
+                            geojson_aft,
+                            name="下午場路線",
+                            style_function=lambda x: {'color': '#ffa500', 'weight': 5, 'opacity': 0.8}
                         ).add_to(m)
                         
                     if 'geojson_aft' in locals() and geojson_aft:
