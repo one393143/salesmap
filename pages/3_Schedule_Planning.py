@@ -80,7 +80,7 @@ else:
         try:
             res = requests.get(url, params=params).json()
             if 'trips' in res and len(res['trips']) > 0:
-                return res['trips'][0]['geometry'], res['waypoints'], res['trips'][0]['duration']
+                return res['trips'][0]['geometry'], res['waypoints'], res['trips'][0]['legs']
         except Exception as e:
             print(e)
         return None, None, None
@@ -135,8 +135,8 @@ else:
             afternoon_ids = []
             
             success = False
-            final_morning_route = []
-            final_afternoon_route = []
+            final_morning_legs = []
+            final_morning_order = []
             
             while len(morning_ids) >= 0:
                 # 準備上午座標
@@ -146,123 +146,113 @@ else:
                 morning_coords.append((anchor_lat, anchor_lon))
                 
                 # 呼叫 API
-                geojson, waypoints, duration = get_optimized_trip_open(morning_coords, MAPBOX_TOKEN)
+                geojson, waypoints, legs = get_optimized_trip_open(morning_coords, MAPBOX_TOKEN)
                 
-                if duration is not None:
-                    # 計算總時間 (交通 + 停留)
-                    # 假設每站停留時間
-                    total_stay = 0
-                    for mid in morning_ids:
-                        total_stay += int(edited_df.loc[mid]['客製停留時間(分鐘)'])
+                if legs is not None:
+                    # 建立訪問順序對應到輸入索引的 mapping
+                    visit_order = [None] * len(waypoints)
+                    for i, wp in enumerate(waypoints):
+                        visit_order[wp['waypoint_index']] = i
                         
-                    total_time_needed = duration / 60 + total_stay # 分鐘
+                    current_time = start_datetime
                     
-                    available_time = (forced_datetime - start_datetime).total_seconds() / 60
-                    
-                    if total_time_needed <= available_time:
+                    # 遍歷每一段計算抵達時間
+                    for idx in range(len(legs)):
+                        leg = legs[idx]
+                        travel_time = leg['duration'] / 60 # 分鐘
+                        
+                        current_time += timedelta(minutes=travel_time)
+                        
+                        if idx < len(legs) - 1:
+                            next_input_idx = visit_order[idx + 1]
+                            cid = morning_ids[next_input_idx - 1]
+                            stay_time = int(edited_df.loc[cid]['客製停留時間(分鐘)'])
+                            current_time += timedelta(minutes=stay_time)
+                            
+                    # 檢查最後抵達錨點的時間是否及時
+                    if current_time <= forced_datetime:
                         success = True
-                        # 解析上午順序
-                        # waypoints 排序與輸入一致
-                        # input: [Company, Cust1, Cust2, ..., Anchor]
-                        ordered_morning = [None] * len(waypoints)
-                        for i, wp in enumerate(waypoints):
-                            idx = wp['waypoint_index']
-                            if i == 0:
-                                ordered_morning[idx] = "🏢 公司"
-                            elif i == len(waypoints) - 1:
-                                ordered_morning[idx] = f"⭐ {anchor_row['客戶名稱']} (錨點)"
-                            else:
-                                cid = morning_ids[i-1]
-                                ordered_morning[idx] = edited_df.loc[cid]['客戶名稱']
-                                
-                        final_morning_route = ordered_morning
+                        final_morning_legs = legs
+                        final_morning_order = visit_order
                         break
                     else:
-                        # 會遲到，將原本排在最後訪問的客戶移到下午
-                        # 找出 waypoint_index = len(morning_ids) 的那個客戶 (即錨點前一個)
-                        # 但 API 返回的 waypoint_index 是訪問順序。
-                        # 我們需要找出訪問順序中，排在最後的那個 morning customer。
-                        # 也就是 waypoint_index 最大的那個 morning customer。
+                        # 會遲到，移除非錨點的最後一個客戶
+                        # 也就是倒數第二個訪問點 (倒數第一個是錨點)
+                        last_cust_input_idx = visit_order[len(legs)]
+                        customer_to_move = morning_ids[last_cust_input_idx - 1]
                         
-                        max_wp_idx = -1
-                        customer_to_move = None
-                        
-                        for i, wp in enumerate(waypoints):
-                            if 0 < i < len(waypoints) - 1: # 排除起點和終點
-                                if wp['waypoint_index'] > max_wp_idx:
-                                    max_wp_idx = wp['waypoint_index']
-                                    customer_to_move = morning_ids[i-1]
-                                    
-                        if customer_to_move is not None:
-                            morning_ids.remove(customer_to_move)
-                            afternoon_ids.insert(0, customer_to_move) # 保持順序或之後再優化
-                        else:
-                            # 如果沒有客戶可以移了，代表連直達都會遲到
-                            break
+                        morning_ids.remove(customer_to_move)
+                        afternoon_ids.insert(0, customer_to_move)
                 else:
                     st.error("呼叫 Mapbox API 失敗！")
                     st.stop()
                     
             if not success:
                 st.error("⚠️ 警告：行程過度擁擠！即使直達預約客戶也會遲到，或無法塞入任何客戶。")
-                
-                # 依然顯示直達路線
-                morning_coords = [(start_lat, start_lon), (anchor_lat, anchor_lon)]
-                geojson, waypoints, duration = get_optimized_trip_open(morning_coords, MAPBOX_TOKEN)
-                if duration:
-                    st.write(f"直達預估交通時間：{duration/60:.1f} 分鐘")
             else:
                 st.success("✅ 時間窗切分成功！")
                 
-                # 優化下午路線 (Anchor -> Afternoon -> Company)
+                # 顯示結果
+                st.markdown("### 📅 最終排程建議")
+                
+                # 1. 顯示上午場
+                st.markdown("#### 🌅 上午場 (出發 ➔ 預約錨點)")
+                current_time = start_datetime
+                st.markdown(f"- **{current_time.strftime('%H:%M')}** 🏢 出發點 (公司)")
+                
+                for idx in range(len(final_morning_legs)):
+                    leg = final_morning_legs[idx]
+                    travel_time = leg['duration'] / 60
+                    current_time += timedelta(minutes=travel_time)
+                    
+                    next_input_idx = final_morning_order[idx + 1]
+                    if idx == len(final_morning_legs) - 1:
+                        st.markdown(f"- **{current_time.strftime('%H:%M')}** 🏁 ⭐ {anchor_row['客戶名稱']} (錨點) [車程: {travel_time:.1f} 分]")
+                    else:
+                        cid = morning_ids[next_input_idx - 1]
+                        cname = edited_df.loc[cid]['客戶名稱']
+                        stay_time = int(edited_df.loc[cid]['客製停留時間(分鐘)'])
+                        st.markdown(f"- **{current_time.strftime('%H:%M')}** 📍 {cname} [車程: {travel_time:.1f} 分]")
+                        current_time += timedelta(minutes=stay_time)
+                        st.markdown(f"  *(停留 {stay_time} 分鐘，預計 {current_time.strftime('%H:%M')} 離開)*")
+                
+                # 2. 顯示下午場
                 if afternoon_ids:
+                    st.markdown("---")
+                    st.markdown("#### 🌆 下午場 (預約錨點 ➔ 公司)")
+                    
+                    # 加上錨點停留時間 (假設也是 default_stay)
+                    anchor_stay = int(anchor_row['客製停留時間(分鐘)'])
+                    current_time += timedelta(minutes=anchor_stay)
+                    st.markdown(f"預計 **{current_time.strftime('%H:%M')}** 從錨點出發")
+                    
                     afternoon_coords = [(anchor_lat, anchor_lon)]
                     for aid in afternoon_ids:
                         afternoon_coords.append((df_all.loc[aid]['Latitude'], df_all.loc[aid]['Longitude']))
                     afternoon_coords.append((start_lat, start_lon))
                     
-                    geojson_aft, waypoints_aft, duration_aft = get_optimized_trip_open(afternoon_coords, MAPBOX_TOKEN)
+                    geojson_aft, waypoints_aft, legs_aft = get_optimized_trip_open(afternoon_coords, MAPBOX_TOKEN)
                     
-                    if duration_aft:
-                        ordered_afternoon = [None] * len(waypoints_aft)
+                    if legs_aft:
+                        visit_order_aft = [None] * len(waypoints_aft)
                         for i, wp in enumerate(waypoints_aft):
-                            idx = wp['waypoint_index']
-                            if i == 0:
-                                ordered_afternoon[idx] = f"⭐ {anchor_row['客戶名稱']} (錨點)"
-                            elif i == len(waypoints_aft) - 1:
-                                ordered_afternoon[idx] = "🏢 公司 (終點)"
+                            visit_order_aft[wp['waypoint_index']] = i
+                            
+                        for idx in range(len(legs_aft)):
+                            leg = legs_aft[idx]
+                            travel_time = leg['duration'] / 60
+                            current_time += timedelta(minutes=travel_time)
+                            
+                            next_input_idx = visit_order_aft[idx + 1]
+                            if idx == len(legs_aft) - 1:
+                                st.markdown(f"- **{current_time.strftime('%H:%M')}** 🏢 抵達公司 (終點) [車程: {travel_time:.1f} 分]")
                             else:
-                                cid = afternoon_ids[i-1]
-                                ordered_afternoon[idx] = edited_df.loc[cid]['客戶名稱']
-                        final_afternoon_route = ordered_afternoon
-                
-                # 顯示結果
-                st.markdown("### 📅 最終排程建議")
-                
-                # 推算絕對時間
-                current_time = start_datetime
-                
-                st.markdown("#### 🌅 上午場 (出發 ➔ 預約錨點)")
-                for stop in final_morning_route:
-                    st.markdown(f"- **{current_time.strftime('%H:%M')}** {stop}")
-                    if "公司" not in stop and "錨點" not in stop:
-                        # 加上停留時間
-                        # 這裡需要找到對應的 cid 來取得停留時間
-                        # 但 final_morning_route 只有名稱。
-                        # 簡化起見，假設非起終點都停留 default_stay 或自訂時間
-                        # 我們可以在 loop 中維護一個指針或字典
-                        pass
-                    # 這裡簡化處理，僅印出順序。要推算每站時間需要知道每段的 duration。
-                    # Mapbox 返回的 trips 裡有 legs，包含每段的 duration。
-                    # 但我們的 get_optimized_trip_open 只返回了總 duration。
-                    # 為了精確推算，我們假設交通時間平均分配或直接顯示順序。
-                    # 根據需求：『利用 datetime.timedelta 推算抵達每一站的絕對時間』
-                    # 由於 Mapbox 返回的 trips[0]['legs'] 包含每段時間，我們應該要返回 legs！
-                    
-                if final_afternoon_route:
-                    st.markdown("#### 🌆 下午場 (預約錨點 ➔ 公司)")
-                    for stop in final_afternoon_route:
-                        st.markdown(f"- {stop}")
-                        
-                st.info("註：詳細每站抵達時間推算需解析 Legs 資訊，目前顯示訪問順序。")
+                                cid = afternoon_ids[next_input_idx - 1]
+                                cname = edited_df.loc[cid]['客戶名稱']
+                                stay_time = int(edited_df.loc[cid]['客製停留時間(分鐘)'])
+                                st.markdown(f"- **{current_time.strftime('%H:%M')}** 📍 {cname} [車程: {travel_time:.1f} 分]")
+                                current_time += timedelta(minutes=stay_time)
+                                st.markdown(f"  *(停留 {stay_time} 分鐘，預計 {current_time.strftime('%H:%M')} 離開)*")
+                    else:
+                        st.error("呼叫 Mapbox API 失敗！")
 
