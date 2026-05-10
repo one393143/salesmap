@@ -19,6 +19,13 @@ else:
     if df_valid.empty:
         st.warning("⚠️ 沒有具備有效經緯度的客戶資料，請先至「資料管理」進行地理編碼。")
     else:
+        # 步驟 3: 顯示全台客戶地圖
+        if st.sidebar.button("🗺️ 顯示全台客戶地圖", use_container_width=True, type="primary"):
+            st.session_state['show_map'] = True
+            st.session_state['filter_mode'] = False
+            st.session_state['run_recommendation'] = False
+            
+        st.sidebar.markdown("---")
         # 步驟 4: 空間半徑過濾
         st.sidebar.write("### 🎯 空間半徑過濾")
         
