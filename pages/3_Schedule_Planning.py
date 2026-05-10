@@ -38,21 +38,25 @@ else:
     display_df = pd.DataFrame({
         '客戶名稱': df_selected[name_col].values,
         '地址': df_selected['清洗後地址'].values if '清洗後地址' in df_selected.columns else df_selected.get('地址', df_selected.columns[0]).values,
-        '客製停留時間(分鐘)': [default_stay] * len(df_selected),
-        '強制抵達時間(可留白)': [''] * len(df_selected)
+        '是否為強制預約': [False] * len(df_selected),
+        '強制抵達時間(可留白)': [''] * len(df_selected),
+        '客製停留時間(分鐘)': [default_stay] * len(df_selected)
     }, index=df_selected.index)
     
     edited_df = st.data_editor(
         display_df,
         column_config={
+            "是否為強制預約": st.column_config.CheckboxColumn(
+                help="勾選代表此客戶有預約時間，必須在指定時間抵達"
+            ),
+            "強制抵達時間(可留白)": st.column_config.TextColumn(
+                help="格式例如: 14:00"
+            ),
             "客製停留時間(分鐘)": st.column_config.NumberColumn(
                 min_value=10,
                 max_value=120,
                 step=5,
                 format="%d"
-            ),
-            "強制抵達時間(可留白)": st.column_config.TextColumn(
-                help="格式例如: 14:00"
             )
         },
         use_container_width=True
