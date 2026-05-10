@@ -57,6 +57,7 @@ def clean_taiwan_address(address):
         addr = re.split(r'樓|F|f|室', addr)[0]
         return addr.strip()
 
+@st.cache_data(ttl=86400)
 def geocode_address(address):
     """呼叫 Mapbox API 取得經緯度"""
     if not isinstance(address, str) or not address.strip():
@@ -81,25 +82,13 @@ def geocode_address(address):
         
     return np.nan, np.nan
 
-def batch_geocode(df, address_col, cache_file="geocoded_cache.csv", use_api=False):
-    """批次轉換地址為經緯度，並實作快取機制"""
+def batch_geocode(df, address_col, use_api=False):
+    """批次轉換地址為經緯度，利用 st.cache_data 進行快取"""
     if 'Latitude' not in df.columns:
         df['Latitude'] = np.nan
     if 'Longitude' not in df.columns:
         df['Longitude'] = np.nan
         
-    # 讀取快取
-    cache_dict = {}
-    if os.path.exists(cache_file):
-        try:
-            cache_df = pd.read_csv(cache_file)
-            cache_df = cache_df.drop_duplicates(subset=['Address'], keep='last')
-            cache_dict = cache_df.set_index('Address').to_dict('index')
-        except Exception as e:
-            print(f"載入快取失敗: {e}")
-            
-    new_cache_entries = []
-    
     progress_bar = st.progress(0)
     status_text = st.empty()
     
@@ -108,26 +97,14 @@ def batch_geocode(df, address_col, cache_file="geocoded_cache.csv", use_api=Fals
         address = row[address_col]
         
         if isinstance(address, str) and address.strip():
-            if address in cache_dict:
-                df.at[i, 'Latitude'] = cache_dict[address]['Latitude']
-                df.at[i, 'Longitude'] = cache_dict[address]['Longitude']
-            elif use_api:
-                lat, lon = geocode_address(address)
-                df.at[i, 'Latitude'] = lat
-                df.at[i, 'Longitude'] = lon
-                new_cache_entries.append({'Address': address, 'Latitude': lat, 'Longitude': lon})
-                time.sleep(0.05)
-        
+            # 直接呼叫 geocode_address，由 Streamlit 處理快取
+            lat, lon = geocode_address(address)
+            df.at[i, 'Latitude'] = lat
+            df.at[i, 'Longitude'] = lon
+            
         if i % 5 == 0 or i == total - 1:
             progress_bar.progress((i + 1) / total)
             status_text.text(f"轉換進度：{i + 1} / {total}")
-            
-    if new_cache_entries:
-        new_cache_df = pd.DataFrame(new_cache_entries)
-        if os.path.exists(cache_file):
-            new_cache_df.to_csv(cache_file, mode='a', header=False, index=False)
-        else:
-            new_cache_df.to_csv(cache_file, index=False)
             
     status_text.text("轉換完成！")
     return df

@@ -11,10 +11,10 @@ from utils import geocode_single_address, get_optimized_trip, generate_gmaps_url
 st.title("🗺️ 空間探索")
 st.markdown("進行半徑過濾與地圖路線規劃。")
 
-if 'geocoded_df' not in st.session_state:
-    st.info("👈 請先至「資料管理」頁面載入並轉換資料。")
+if 'client_data' not in st.session_state:
+    st.warning("⚠️ 尚未載入客戶資料！請先至「📁 資料管理」頁面載入或上傳資料。")
 else:
-    df_valid = st.session_state['geocoded_df'].dropna(subset=['Latitude', 'Longitude'])
+    df_valid = st.session_state['client_data'].dropna(subset=['Latitude', 'Longitude'])
     
     if df_valid.empty:
         st.warning("⚠️ 沒有具備有效經緯度的客戶資料，請先至「資料管理」進行地理編碼。")

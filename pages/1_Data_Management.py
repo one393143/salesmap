@@ -65,13 +65,13 @@ if df is not None:
                 with st.spinner(msg):
                     df_to_geocode = st.session_state['cleaned_df']
                     geocoded_df = batch_geocode(df_to_geocode, '清洗後地址', use_api=use_api)
-                    st.session_state['geocoded_df'] = geocoded_df
+                    st.session_state['client_data'] = geocoded_df
                     st.session_state['show_map'] = False
                 
                 st.success("地理編碼完成！")
 
-if 'geocoded_df' in st.session_state:
-    geocoded_df = st.session_state['geocoded_df']
+if 'client_data' in st.session_state:
+    geocoded_df = st.session_state['client_data']
     saved_target_col = st.session_state.get('target_col', '地址')
     
     st.write("### 🌍 座標轉換結果")
