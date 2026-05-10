@@ -73,7 +73,8 @@ edited_df = st.data_editor(
         ),
         "預約抵達時間": st.column_config.TimeColumn(
             help="選擇預約抵達時間",
-            format="HH:mm" # 移除秒數，只顯示小時與分鐘
+            format="HH:mm",
+            step=60
         ),
         "移除此站": st.column_config.CheckboxColumn(
             help="勾選此欄位以移除此站"
