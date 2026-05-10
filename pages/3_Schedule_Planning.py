@@ -177,8 +177,9 @@ else:
                         break
                     else:
                         # 會遲到，移除非錨點的最後一個客戶
-                        # 也就是倒數第二個訪問點 (倒數第一個是錨點)
-                        last_cust_input_idx = visit_order[len(legs)]
+                        # 也就是倒數第二個訪問點 (倒數第一個是錨點，索引為 len(legs))
+                        # 倒數第二個訪問點的索引為 len(legs) - 1
+                        last_cust_input_idx = visit_order[len(legs) - 1]
                         customer_to_move = morning_ids[last_cust_input_idx - 1]
                         
                         morning_ids.remove(customer_to_move)

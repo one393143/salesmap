@@ -25,6 +25,34 @@ def show_home():
     ---
     👈 **請從左側側邊欄選擇功能頁面開始使用。**
     """)
+    
+    st.markdown("---")
+    st.markdown("### 🚀 快速開始")
+    if st.button("📥 一鍵匯入預設已編碼資料", use_container_width=True, type="primary"):
+        import pandas as pd
+        from utils import clean_taiwan_address
+        
+        url = "https://raw.githubusercontent.com/one393143/salesmap/main/geocoded_customers.csv"
+        try:
+            with st.spinner("正在從 GitHub 載入資料..."):
+                df = pd.read_csv(url)
+                
+                target_col = '地址'
+                if target_col not in df.columns:
+                    addr_cols = [col for col in df.columns if '地址' in col]
+                    if addr_cols:
+                        target_col = addr_cols[0]
+                        
+                if '清洗後地址' not in df.columns and target_col in df.columns:
+                    df['清洗後地址'] = df[target_col].apply(clean_taiwan_address)
+                    
+                st.session_state['client_data'] = df
+                st.session_state['cleaned_df'] = df
+                st.session_state['target_col'] = target_col
+                
+                st.success("🎉 一鍵匯入完成！資料已載入，請直接前往「🗺️ 空間探索」或「⏱️ 行程排程」頁面。")
+        except Exception as e:
+            st.error(f"載入失敗: {e}")
 
 # 定義頁面
 home_page = st.Page(show_home, title="首頁", icon="🏠")
