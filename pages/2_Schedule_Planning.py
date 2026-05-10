@@ -358,6 +358,8 @@ text-decoration: underline;
         
         # 增強型防呆：處理 Streamlit 偶爾將時間欄位返回為字串的情況
         if isinstance(forced_time, str):
+            # 移除毫秒部分 (例如 10:24:17.000 -> 10:24:17)
+            forced_time = forced_time.split('.')[0]
             try:
                 forced_time = datetime.strptime(forced_time, "%H:%M:%S").time()
             except ValueError:
