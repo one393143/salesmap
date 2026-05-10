@@ -193,7 +193,6 @@ else:
                         
                     current_time += timedelta(minutes=travel_time)
                     
-                    next_input_idx = visit_order[idx + 1]
                     if idx == len(legs) - 1:
                         dest_addr = start_addr
                         nav_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(str(prev_addr))}&destination={urllib.parse.quote(str(dest_addr))}"
@@ -207,6 +206,7 @@ else:
                         </div>
                         """
                     else:
+                        next_input_idx = visit_order[idx + 1]
                         cid = client_ids[next_input_idx - 1]
                         cname = edited_df.loc[cid]['客戶名稱']
                         stay_time = int(edited_df.loc[cid]['客製停留時間(分鐘)'])
