@@ -203,37 +203,53 @@ else:
             else:
                 if not st.session_state.get('filter_mode', False):
                     # ==========================================
-                    # 全台客戶地圖 -> 使用 Pydeck (極速流暢)
+                    # 全台客戶地圖 -> 使用 Folium (保留群聚功能)
                     # ==========================================
-                    st.write("### 🌍 全台客戶地圖 (快速瀏覽)")
+                    st.write("### 🌍 全台客戶地圖 (支援群聚收攏)")
                     
-                    import pydeck as pdk
-                    
-                    pydeck_data = df_map[['Latitude', 'Longitude', name_col]].dropna()
-                    
-                    layer = pdk.Layer(
-                        "ScatterplotLayer",
-                        pydeck_data,
-                        get_position="[Longitude, Latitude]",
-                        get_color="[0, 123, 255, 160]",
-                        get_radius=200,
-                        pickable=True,
-                    )
-                    
-                    view_state = pdk.ViewState(
-                        latitude=23.5,
-                        longitude=121.0,
-                        zoom=7,
-                        pitch=0,
-                    )
-                    
-                    st.pydeck_chart(pdk.Deck(
-                        layers=[layer],
-                        initial_view_state=view_state,
-                        tooltip={"text": "{"+name_col+"}"},
-                        map_style="mapbox://styles/mapbox/light-v10",
-                        api_keys={"mapbox": MAPBOX_TOKEN}
-                    ))
+                    with st.spinner("正在產生具備群聚功能的互動式地圖..."):
+                        m = folium.Map(location=[23.5, 121.0], zoom_start=7, tiles=None)
+                        folium.TileLayer(
+                            tiles="https://api.mapbox.com/styles/v1/mapbox/light-v10/tiles/{z}/{x}/{y}?access_token=" + MAPBOX_TOKEN,
+                            attr="Mapbox",
+                            name="Mapbox Light"
+                        ).add_to(m)
+                        
+                        marker_cluster = MarkerCluster(
+                            maxClusterRadius=40, 
+                            disableClusteringAtZoom=15,
+                            spiderfyOnMaxZoom=False
+                        ).add_to(m)
+                        
+                        grouped = df_map.groupby(['Latitude', 'Longitude'])
+                        
+                        for (lat, lon), group in grouped:
+                            tooltip_names = []
+                            popup_sections = []
+                            
+                            for idx, row in group.iterrows():
+                                customer_name = row[name_col] if name_col and pd.notna(row[name_col]) else f"客戶 {idx}"
+                                original_addr = row[saved_target_col] if saved_target_col in row else ""
+                                cleaned_addr = row['清洗後地址'] if '清洗後地址' in row else ""
+                                
+                                tooltip_names.append(str(customer_name))
+                                popup_sections.append(f"<b>名稱:</b> {customer_name}<br><b>原始地址:</b> {original_addr}<br><b>清洗後地址:</b> {cleaned_addr}")
+                                
+                            final_tooltip = " | ".join(tooltip_names)
+                            final_popup_html = "<hr>".join(popup_sections)
+                            
+                            folium.CircleMarker(
+                                location=[lat, lon],
+                                radius=6,
+                                color='#3186cc',
+                                fill=True,
+                                fill_color='#3186cc',
+                                tooltip=final_tooltip,
+                                popup=folium.Popup(final_popup_html, max_width=350)
+                            ).add_to(marker_cluster)
+                        
+                        from streamlit_folium import st_folium
+                        st_folium(m, use_container_width=True, height=700)
                     
                 else:
                     # ==========================================

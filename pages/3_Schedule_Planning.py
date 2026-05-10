@@ -531,29 +531,7 @@ else:
                             popup=stop[2]
                         ).add_to(m)
                         
-                    folium_static(m)ground-color: #007bff; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center;">起</div>'),
-                        popup="🏢 出發點 (公司)"
-                    ).add_to(m)
-                    
-                    for i, stop in enumerate(morning_stops):
-                        folium.Marker(
-                            location=[stop[0], stop[1]],
-                            icon=folium.DivIcon(html=f'<div style="font-size: 10pt; color: white; background-color: #007bff; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center;">{i+1}</div>'),
-                            popup=stop[2]
-                        ).add_to(m)
-                        
-                    folium.Marker(
-                        location=[anchor_lat, anchor_lon],
-                        icon=folium.DivIcon(html=f'<div style="font-size: 10pt; color: white; background-color: #ff0000; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center;">⭐</div>'),
-                        popup=f"⭐ {anchor_row['客戶名稱']} (錨點)"
-                    ).add_to(m)
-                    
-                    for i, stop in enumerate(afternoon_stops):
-                        folium.Marker(
-                            location=[stop[0], stop[1]],
-                            icon=folium.DivIcon(html=f'<div style="font-size: 10pt; color: white; background-color: #ffa500; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center;">{len(morning_stops)+1+i}</div>'),
-                            popup=stop[2]
-                        ).add_to(m)
+
                         
                     folium_static(m)
 
