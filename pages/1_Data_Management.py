@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from utils import clean_taiwan_address, batch_geocode, MAPBOX_TOKEN
 
-st.set_page_config(page_title="資料管理", layout="wide")
 
 st.title("📁 資料管理")
 st.markdown("上傳 CSV 資料、清洗地址與座標轉換。")

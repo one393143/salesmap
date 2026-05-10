@@ -7,7 +7,6 @@ from haversine import haversine, Unit
 import numpy as np
 from utils import geocode_single_address, get_optimized_trip, generate_gmaps_url, MAPBOX_TOKEN
 
-st.set_page_config(page_title="空間探索", layout="wide")
 
 st.title("🗺️ 空間探索")
 st.markdown("進行半徑過濾與地圖路線規劃。")
