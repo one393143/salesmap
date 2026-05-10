@@ -249,12 +249,14 @@ if st.button("🚀 產生最佳時間排程", use_container_width=True, type="pr
         return tl
 
     # 決定出發時間
-    if auto_start and anchor_pos is not None:
+    forced_dt = None
+    if anchor_row is not None:
         forced_time = anchor_row['預約抵達時間']
         if isinstance(forced_time, str):
             forced_time = datetime.strptime(forced_time.split('.')[0], "%H:%M:%S").time()
         forced_dt = datetime.combine(datetime.today(), forced_time)
-        
+
+    if auto_start and anchor_pos is not None:
         # 初步推算：不考慮休息時間，計算從公司到預約點的總時間
         total_dur_to_anchor = 0
         for idx in range(anchor_pos):
@@ -286,6 +288,17 @@ if st.button("🚀 產生最佳時間排程", use_container_width=True, type="pr
 
     # 執行最終計算
     final_timeline = calculate_timeline(final_start_dt)
+    
+    # 檢查是否超過預約時間
+    if forced_dt is not None:
+        anchor_arrival = None
+        for item in final_timeline:
+            if item.get('id') == anchor_idx:
+                anchor_arrival = item['time']
+                break
+                
+        if anchor_arrival and anchor_arrival > forced_dt:
+            st.warning(f"⚠️ 警告：預計抵達 {anchor_row['客戶名稱']} 的時間為 {anchor_arrival.strftime('%H:%M')}，已超過您預約的 {forced_dt.strftime('%H:%M')}！請考慮勾選「自動推算出發時間」或調整出發時間。")
     
     # ---------------------------------------------------------------------------
     # 顯示結果：時刻表與地圖
