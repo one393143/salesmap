@@ -72,7 +72,8 @@ edited_df = st.data_editor(
             help="勾選代表此客戶有預約時間，必須在指定時間抵達"
         ),
         "預約抵達時間": st.column_config.TimeColumn(
-            help="選擇預約抵達時間"
+            help="選擇預約抵達時間",
+            format="HH:mm" # 移除秒數，只顯示小時與分鐘
         ),
         "移除此站": st.column_config.CheckboxColumn(
             help="勾選此欄位以移除此站"
@@ -354,6 +355,18 @@ text-decoration: underline;
         # 模式 B：時間窗切分 (有強制預約)
         # ==========================================
         forced_time = anchor_row['預約抵達時間']
+        
+        # 增強型防呆：處理 Streamlit 偶爾將時間欄位返回為字串的情況
+        if isinstance(forced_time, str):
+            try:
+                forced_time = datetime.strptime(forced_time, "%H:%M:%S").time()
+            except ValueError:
+                try:
+                    forced_time = datetime.strptime(forced_time, "%H:%M").time()
+                except ValueError:
+                    st.error(f"預約時間格式錯誤: {forced_time}，請使用 24 小時制，例如 14:00")
+                    st.stop()
+            
         forced_time_str = forced_time.strftime("%H:%M")
             
         st.info(f"偵測到預約客戶：{anchor_row['客戶名稱']}，預約時間：{forced_time_str}")
