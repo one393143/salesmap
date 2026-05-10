@@ -74,6 +74,9 @@ else:
                         
             selected_candidates = st.sidebar.multiselect("選擇今日預計拜訪客戶 (至多 5 家)", cand_options)
             
+            # 實作購物車流動：將選取的客戶 ID 存入 session_state
+            st.session_state['selected_clients'] = [int(x.split(" - ")[0]) for x in selected_candidates]
+            
             if len(selected_candidates) > 5:
                 st.sidebar.warning("⚠️ 為確保拜訪品質，一日最多安排 5 家客戶")
                 st.sidebar.button("💡 計算最佳拜訪路線", disabled=True)
@@ -198,91 +201,134 @@ else:
             if df_map.empty:
                 st.warning("⚠️ 範圍內沒有可用的座標資料來繪製地圖。")
             else:
-                with st.spinner("正在產生高流暢度的互動式地圖..."):
-                    m = folium.Map(location=[23.5, 121.0], zoom_start=7, tiles='CartoDB positron')
+                if not st.session_state.get('filter_mode', False):
+                    # ==========================================
+                    # 全台客戶地圖 -> 使用 Pydeck (極速流暢)
+                    # ==========================================
+                    st.write("### 🌍 全台客戶地圖 (快速瀏覽)")
                     
-                    if anchor_row is not None:
-                        folium.Circle(
-                            location=[anchor_row['Latitude'], anchor_row['Longitude']],
-                            radius=radius_km * 1000,
-                            color='gray',
-                            fill=True,
-                            fill_opacity=0.2,
-                            interactive=False
+                    import pydeck as pdk
+                    
+                    pydeck_data = df_map[['Latitude', 'Longitude', name_col]].dropna()
+                    
+                    layer = pdk.Layer(
+                        "ScatterplotLayer",
+                        pydeck_data,
+                        get_position="[Longitude, Latitude]",
+                        get_color="[0, 123, 255, 160]",
+                        get_radius=200,
+                        pickable=True,
+                    )
+                    
+                    view_state = pdk.ViewState(
+                        latitude=23.5,
+                        longitude=121.0,
+                        zoom=7,
+                        pitch=0,
+                    )
+                    
+                    st.pydeck_chart(pdk.Deck(
+                        layers=[layer],
+                        initial_view_state=view_state,
+                        tooltip={"text": "{"+name_col+"}"},
+                        map_style="mapbox://styles/mapbox/light-v10",
+                        api_keys={"mapbox": MAPBOX_TOKEN}
+                    ))
+                    
+                else:
+                    # ==========================================
+                    # 半徑過濾地圖 -> 使用 Folium (支援圓圈與路線)
+                    # ==========================================
+                    with st.spinner("正在產生高流暢度的互動式地圖..."):
+                        m = folium.Map(location=[23.5, 121.0], zoom_start=7, tiles=None)
+                        folium.TileLayer(
+                            tiles="https://api.mapbox.com/styles/v1/mapbox/light-v10/tiles/{z}/{x}/{y}?access_token=" + MAPBOX_TOKEN,
+                            attr="Mapbox",
+                            name="Mapbox Light"
                         ).add_to(m)
-                    
-                    marker_cluster = MarkerCluster(
-                        maxClusterRadius=40, 
-                        disableClusteringAtZoom=15,
-                        spiderfyOnMaxZoom=False
-                    ).add_to(m)
-                    
-                    if st.session_state.get('preview_route_geojson'):
-                        folium.GeoJson(
-                            st.session_state['preview_route_geojson'],
-                            name="推薦路線預覽",
-                            style_function=lambda x: {
-                                'color': '#ff5a5f',
-                                'weight': 6,
-                                'opacity': 0.8
-                            }
-                        ).add_to(m)
-                    
-                    if st.session_state.get('run_recommendation') and 'route_bounds' in st.session_state:
-                        m.fit_bounds(st.session_state['route_bounds'])
-                    else:
-                        sw = df_map[['Latitude', 'Longitude']].min().values.tolist()
-                        ne = df_map[['Latitude', 'Longitude']].max().values.tolist()
-                        if sw == ne:
-                            m.fit_bounds([sw, ne], max_zoom=14)
-                        else:
-                            m.fit_bounds([sw, ne])
-                    
-                    grouped = df_map.groupby(['Latitude', 'Longitude'])
-                    
-                    for (lat, lon), group in grouped:
-                        tooltip_names = []
-                        popup_sections = []
                         
-                        for idx, row in group.iterrows():
-                            customer_name = row[name_col] if name_col and pd.notna(row[name_col]) else f"客戶 {idx}"
-                            original_addr = row[saved_target_col] if saved_target_col in row else ""
-                            cleaned_addr = row['清洗後地址'] if '清洗後地址' in row else ""
-                            
-                            is_anchor = (anchor_row is not None and idx == anchor_row.name)
-                            if is_anchor:
-                                tooltip_names.insert(0, f"⭐ {customer_name} (錨點)")
-                                popup_sections.insert(0, f"<b>【錨點客戶】</b><br><b>名稱:</b> {customer_name}<br><b>原始地址:</b> {original_addr}<br><b>清洗後地址:</b> {cleaned_addr}")
-                            else:
-                                tooltip_names.append(str(customer_name))
-                                dist_str = f"<br><b>距離:</b> {row['Distance']:.2f} km" if 'Distance' in row else ""
-                                popup_sections.append(f"<b>名稱:</b> {customer_name}<br><b>原始地址:</b> {original_addr}<br><b>清洗後地址:</b> {cleaned_addr}{dist_str}")
-                                
-                        final_tooltip = " | ".join(tooltip_names)
-                        final_popup_html = "<hr>".join(popup_sections)
-                        
-                        is_anchor_group = any(anchor_row is not None and idx == anchor_row.name for idx, _ in group.iterrows())
-                        
-                        if is_anchor_group:
-                            folium.CircleMarker(
-                                location=[lat, lon],
-                                radius=8,
-                                color='red',
+                        if anchor_row is not None:
+                            folium.Circle(
+                                location=[anchor_row['Latitude'], anchor_row['Longitude']],
+                                radius=radius_km * 1000,
+                                color='gray',
                                 fill=True,
-                                fill_color='red',
-                                tooltip=final_tooltip,
-                                popup=folium.Popup(final_popup_html, max_width=350),
-                                z_index_offset=1000
+                                fill_opacity=0.2,
+                                interactive=False
                             ).add_to(m)
+                        
+                        marker_cluster = MarkerCluster(
+                            maxClusterRadius=40, 
+                            disableClusteringAtZoom=15,
+                            spiderfyOnMaxZoom=False
+                        ).add_to(m)
+                        
+                        if st.session_state.get('preview_route_geojson'):
+                            folium.GeoJson(
+                                st.session_state['preview_route_geojson'],
+                                name="推薦路線預覽",
+                                style_function=lambda x: {
+                                    'color': '#ff5a5f',
+                                    'weight': 6,
+                                    'opacity': 0.8
+                                }
+                            ).add_to(m)
+                        
+                        if st.session_state.get('run_recommendation') and 'route_bounds' in st.session_state:
+                            m.fit_bounds(st.session_state['route_bounds'])
                         else:
-                            folium.CircleMarker(
-                                location=[lat, lon],
-                                radius=6,
-                                color='#3186cc',
-                                fill=True,
-                                fill_color='#3186cc',
-                                tooltip=final_tooltip,
-                                popup=folium.Popup(final_popup_html, max_width=350)
-                            ).add_to(marker_cluster)
-                    
-                    st_folium(m, use_container_width=True, height=700)
+                            sw = df_map[['Latitude', 'Longitude']].min().values.tolist()
+                            ne = df_map[['Latitude', 'Longitude']].max().values.tolist()
+                            if sw == ne:
+                                m.fit_bounds([sw, ne], max_zoom=14)
+                            else:
+                                m.fit_bounds([sw, ne])
+                        
+                        grouped = df_map.groupby(['Latitude', 'Longitude'])
+                        
+                        for (lat, lon), group in grouped:
+                            tooltip_names = []
+                            popup_sections = []
+                            
+                            for idx, row in group.iterrows():
+                                customer_name = row[name_col] if name_col and pd.notna(row[name_col]) else f"客戶 {idx}"
+                                original_addr = row[saved_target_col] if saved_target_col in row else ""
+                                cleaned_addr = row['清洗後地址'] if '清洗後地址' in row else ""
+                                
+                                is_anchor = (anchor_row is not None and idx == anchor_row.name)
+                                if is_anchor:
+                                    tooltip_names.insert(0, f"⭐ {customer_name} (錨點)")
+                                    popup_sections.insert(0, f"<b>【錨點客戶】</b><br><b>名稱:</b> {customer_name}<br><b>原始地址:</b> {original_addr}<br><b>清洗後地址:</b> {cleaned_addr}")
+                                else:
+                                    tooltip_names.append(str(customer_name))
+                                    dist_str = f"<br><b>距離:</b> {row['Distance']:.2f} km" if 'Distance' in row else ""
+                                    popup_sections.append(f"<b>名稱:</b> {customer_name}<br><b>原始地址:</b> {original_addr}<br><b>清洗後地址:</b> {cleaned_addr}{dist_str}")
+                                    
+                            final_tooltip = " | ".join(tooltip_names)
+                            final_popup_html = "<hr>".join(popup_sections)
+                            
+                            is_anchor_group = any(anchor_row is not None and idx == anchor_row.name for idx, _ in group.iterrows())
+                            
+                            if is_anchor_group:
+                                folium.CircleMarker(
+                                    location=[lat, lon],
+                                    radius=8,
+                                    color='red',
+                                    fill=True,
+                                    fill_color='red',
+                                    tooltip=final_tooltip,
+                                    popup=folium.Popup(final_popup_html, max_width=350),
+                                    z_index_offset=1000
+                                ).add_to(m)
+                            else:
+                                folium.CircleMarker(
+                                    location=[lat, lon],
+                                    radius=6,
+                                    color='#3186cc',
+                                    fill=True,
+                                    fill_color='#3186cc',
+                                    tooltip=final_tooltip,
+                                    popup=folium.Popup(final_popup_html, max_width=350)
+                                ).add_to(marker_cluster)
+                        
+                        st_folium(m, use_container_width=True, height=700)
