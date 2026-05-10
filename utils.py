@@ -96,6 +96,10 @@ def batch_geocode(df, address_col, use_api=False):
     for i, row in df.iterrows():
         address = row[address_col]
         
+        # 關鍵防呆：如果該行已經具備經緯度(例如從 GitHub 載入的已編碼歷史紀錄)，則跳過不呼叫 API
+        if pd.notna(row.get('Latitude')) and pd.notna(row.get('Longitude')):
+            continue
+            
         if isinstance(address, str) and address.strip():
             # 直接呼叫 geocode_address，由 Streamlit 處理快取
             lat, lon = geocode_address(address)
