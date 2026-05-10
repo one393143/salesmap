@@ -207,12 +207,28 @@ if not MAPBOX_TOKEN:
     st.sidebar.error("⚠️ 未設定 MAPBOX_API_KEY！")
 
 try:
-    uploaded_file = st.sidebar.file_uploader("📤 上傳客戶資料 (CSV)", type=["csv"])
+    data_source = st.sidebar.radio("選擇資料來源", ["預設專案資料 (GitHub)", "上傳自訂資料 (CSV)"])
     
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
-        st.sidebar.success("已成功讀取上傳資料！")
-        
+    df = None
+    if data_source == "預設專案資料 (GitHub)":
+        file_options = {
+            "原始客戶資料": "https://raw.githubusercontent.com/one393143/salesmap/main/%E5%AE%A2%E6%88%B6_%E4%BE%9B%E6%87%89%E5%95%86%E5%9F%BA%E6%9C%AC%E8%B3%87%E6%96%99%20Customer%20_%20Supplier%20Master%20Data_20260510T160059%2B0800.csv",
+            "已編碼歷史紀錄 (geocoded)": "https://raw.githubusercontent.com/one393143/salesmap/main/geocoded_customers.csv"
+        }
+        selected_file = st.sidebar.selectbox("選擇專案檔案", list(file_options.keys()))
+        url = file_options[selected_file]
+        try:
+            df = pd.read_csv(url)
+            st.sidebar.success(f"已成功載入: {selected_file}")
+        except Exception as e:
+            st.sidebar.error(f"載入失敗: {e}")
+    else:
+        uploaded_file = st.sidebar.file_uploader("📤 上傳客戶資料 (CSV)", type=["csv"])
+        if uploaded_file is not None:
+            df = pd.read_csv(uploaded_file)
+            st.sidebar.success("已成功讀取上傳資料！")
+            
+    if df is not None:
         # 自動尋找可能是地址的欄位 (address 或 地址)
         address_cols = [col for col in df.columns if any(k in str(col).lower() for k in ['地址', 'address', 'addr'])]
         target_col = st.sidebar.selectbox(
