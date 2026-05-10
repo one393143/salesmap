@@ -96,6 +96,9 @@ if selected_anchor != "無" and radius_km > 0:
     filtered_df['Distance'] = distances
     filtered_df = filtered_df[filtered_df['Distance'] <= radius_km]
 
+# 儲存當前篩選結果供 Callback 使用
+st.session_state['current_filtered_df'] = filtered_df.copy()
+
 # ---------------------------------------------------------------------------
 # 中間：地圖 (Folium)
 # ---------------------------------------------------------------------------
@@ -162,8 +165,8 @@ for idx, row in filtered_df.iterrows():
         popup=folium.Popup(popup_html, max_width=350)
     ).add_to(marker_cluster)
 
-# 渲染地圖
-st_folium(m, use_container_width=True, height=400)
+# 渲染地圖 (優化效能：設定 returned_objects=[]，避免點選或放大時觸發 Streamlit 重新渲染)
+st_folium(m, use_container_width=True, height=400, returned_objects=[])
 
 # ---------------------------------------------------------------------------
 # 下半部：客戶資料表 (st.data_editor)
@@ -183,24 +186,35 @@ show_cols.extend(['清洗後地址', '加入候補'])
 if 'Distance' in display_df.columns:
     show_cols.append('Distance')
 
-# 使用 st.data_editor 讓使用者可以勾選
+# 使用 Callback 來處理勾選，避免狀態丟失
+def on_cart_change():
+    if "cart_editor" in st.session_state and 'current_filtered_df' in st.session_state:
+        edits = st.session_state["cart_editor"].get("edited_rows", {})
+        last_df = st.session_state['current_filtered_df'].reset_index()
+        
+        for row_idx, changes in edits.items():
+            if "加入候補" in changes:
+                is_checked = changes["加入候補"]
+                idx_int = int(row_idx)
+                if idx_int < len(last_df):
+                    orig_idx = last_df.iloc[idx_int]['index']
+                    
+                    if is_checked and orig_idx not in st.session_state['candidate_cart']:
+                        st.session_state['candidate_cart'].append(orig_idx)
+                    elif not is_checked and orig_idx in st.session_state['candidate_cart']:
+                        try:
+                            st.session_state['candidate_cart'].remove(orig_idx)
+                        except ValueError:
+                            pass # 避免重複移除報錯
+
 edited_df = st.data_editor(
     display_df[show_cols],
     use_container_width=True,
     disabled=['index', name_col, '統一編號', '清洗後地址', 'Distance'],
     hide_index=True,
-    key="cart_editor"
+    key="cart_editor",
+    on_change=on_cart_change
 )
-
-# 處理勾選結果，更新 Session State
-for i, row in edited_df.iterrows():
-    orig_idx = row['index']
-    is_checked = row['加入候補']
-    
-    if is_checked and orig_idx not in st.session_state['candidate_cart']:
-        st.session_state['candidate_cart'].append(orig_idx)
-    elif not is_checked and orig_idx in st.session_state['candidate_cart']:
-        st.session_state['candidate_cart'].remove(orig_idx)
 
 # ---------------------------------------------------------------------------
 # 側邊欄：候補名單顯示 (放在最後以確保即時更新)
@@ -213,8 +227,8 @@ if not st.session_state['candidate_cart']:
 else:
     st.sidebar.markdown(f"**已選擇 {len(st.session_state['candidate_cart'])} 家客戶**")
     for cid in st.session_state['candidate_cart']:
-        if cid in df_valid.index:
-            row = df_valid.loc[cid]
+        if cid in df.index:
+            row = df.loc[cid]
             cname = row[name_col]
             st.sidebar.text(f"• {cname}")
         else:
