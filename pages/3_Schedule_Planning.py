@@ -157,8 +157,6 @@ else:
             with col_left:
                 st.markdown("#### ⏱️ 行程時刻表")
                 
-                st.markdown("#### ⏱️ 行程時刻表")
-                
                 timeline_html = """
 <style>
 .funliday-list {
@@ -255,7 +253,7 @@ else:
                     
                     if idx == len(legs) - 1:
                         dest_addr = start_addr
-                        nav_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(str(prev_addr))}&destination={urllib.parse.quote(str(dest_addr))}"
+                        nav_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(str(prev_addr))}&destination={urllib.parse.quote(str(dest_addr))}&travelmode=driving"
                         
                         timeline_html += f"""
 <div class="funliday-transit">
@@ -277,7 +275,7 @@ else:
                         stay_time = int(edited_df.loc[cid]['客製停留時間(分鐘)'])
                         dest_addr = edited_df.loc[cid]['地址']
                         
-                        nav_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(str(prev_addr))}&destination={urllib.parse.quote(str(dest_addr))}"
+                        nav_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(str(prev_addr))}&destination={urllib.parse.quote(str(dest_addr))}&travelmode=driving"
                         
                         end_stay_time = current_time + timedelta(minutes=stay_time)
                         
@@ -311,19 +309,19 @@ else:
                 
                 folium.GeoJson(
                     geojson,
-                    style_function=lambda x: {'color': '#007bff', 'weight': 5, 'opacity': 0.8}
+                    style_function=lambda x: {'color': '#ff5a5f', 'weight': 5, 'opacity': 0.8}
                 ).add_to(m)
                 
                 folium.Marker(
                     location=[start_lat, start_lon],
-                    icon=folium.DivIcon(html=f'<div style="font-size: 10pt; color: white; background-color: #007bff; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center;">起</div>'),
+                    icon=folium.DivIcon(html=f'<div style="font-size: 10pt; color: white; background-color: #ff5a5f; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center;">起</div>'),
                     popup="🏢 公司"
                 ).add_to(m)
                 
                 for i, stop in enumerate(stops_for_map):
                     folium.Marker(
                         location=[stop[0], stop[1]],
-                        icon=folium.DivIcon(html=f'<div style="font-size: 10pt; color: white; background-color: #007bff; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center;">{i+1}</div>'),
+                        icon=folium.DivIcon(html=f'<div style="font-size: 10pt; color: white; background-color: #ff5a5f; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center;">{i+1}</div>'),
                         popup=stop[2]
                     ).add_to(m)
                     
@@ -510,7 +508,7 @@ else:
                         
                         if idx == len(final_morning_legs) - 1:
                             dest_addr = anchor_row['地址']
-                            nav_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(str(prev_addr))}&destination={urllib.parse.quote(str(dest_addr))}"
+                            nav_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(str(prev_addr))}&destination={urllib.parse.quote(str(dest_addr))}&travelmode=driving"
                             
                             timeline_html += f"""
 <div class="funliday-transit">
@@ -533,7 +531,7 @@ else:
                             stay_time = int(edited_df.loc[cid]['客製停留時間(分鐘)'])
                             dest_addr = edited_df.loc[cid]['地址']
                             
-                            nav_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(str(prev_addr))}&destination={urllib.parse.quote(str(dest_addr))}"
+                            nav_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(str(prev_addr))}&destination={urllib.parse.quote(str(dest_addr))}&travelmode=driving"
                             
                             end_stay_time = current_time + timedelta(minutes=stay_time)
                             
@@ -589,7 +587,7 @@ else:
                                 
                                 if idx == len(legs_aft) - 1:
                                     dest_addr = start_addr
-                                    nav_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(str(prev_addr))}&destination={urllib.parse.quote(str(dest_addr))}"
+                                    nav_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(str(prev_addr))}&destination={urllib.parse.quote(str(dest_addr))}&travelmode=driving"
                                     
                                     timeline_html += f"""
 <div class="funliday-transit" style="border-left-color: #ffa500;">
@@ -611,7 +609,7 @@ else:
                                     stay_time = int(edited_df.loc[cid]['客製停留時間(分鐘)'])
                                     dest_addr = edited_df.loc[cid]['地址']
                                     
-                                    nav_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(str(prev_addr))}&destination={urllib.parse.quote(str(dest_addr))}"
+                                    nav_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(str(prev_addr))}&destination={urllib.parse.quote(str(dest_addr))}&travelmode=driving"
                                     
                                     timeline_html += f"""
                                     <div class="timeline-item">
@@ -647,12 +645,6 @@ else:
                         folium.GeoJson(
                             geojson_aft,
                             name="下午場路線",
-                            style_function=lambda x: {'color': '#ffa500', 'weight': 5, 'opacity': 0.8}
-                        ).add_to(m)
-                        
-                    if 'geojson_aft' in locals() and geojson_aft:
-                        folium.GeoJson(
-                            geojson_aft,
                             style_function=lambda x: {'color': '#ffa500', 'weight': 5, 'opacity': 0.8}
                         ).add_to(m)
                         

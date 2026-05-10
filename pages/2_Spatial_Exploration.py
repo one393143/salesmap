@@ -248,8 +248,8 @@ else:
                                 popup=folium.Popup(final_popup_html, max_width=350)
                             ).add_to(marker_cluster)
                         
-                        from streamlit_folium import st_folium
-                        st_folium(m, use_container_width=True, height=700)
+                        from streamlit_folium import folium_static
+                        folium_static(m, width=1000, height=700)
                     
                 else:
                     # ==========================================
