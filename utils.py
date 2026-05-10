@@ -8,10 +8,8 @@ import numpy as np
 from dotenv import load_dotenv
 import urllib.parse
 
-# 載入環境變數
-env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
-load_dotenv(dotenv_path=env_path, override=True)
-MAPBOX_TOKEN = os.getenv("MAPBOX_API_KEY")
+# 載入環境變數 (改用 Streamlit Secrets)
+MAPBOX_TOKEN = st.secrets["MAPBOX_API_KEY"]
 
 def clean_taiwan_address(address):
     """

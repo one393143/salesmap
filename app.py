@@ -1,5 +1,11 @@
 import streamlit as st
 
+# 初始化全域 Session State
+if 'client_data' not in st.session_state:
+    st.session_state['client_data'] = None
+if 'selected_clients' not in st.session_state:
+    st.session_state['selected_clients'] = []
+
 # 首頁內容函數
 def show_home():
     st.title("🗺️ 企業客戶分佈地圖與路線系統")
